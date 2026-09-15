@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; frame-src * http://127.0.0.1:* http://localhost:*; child-src * http://127.0.0.1:* http://localhost:*; connect-src *;">
+  <title>OcuNexa Clinical Kiosk Loader</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0b0f17;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #f1f5f9;
+    }
+    #react-frame {
+      width: 100vw;
+      height: 100vh;
+      border: none;
+      display: block;
+    }
+    #fallback-overlay {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(circle at 50% 20%, #1e293b, #0b0f17);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      z-index: 10;
+    }
+    .btn {
+      margin-top: 1.5rem;
+      background: linear-gradient(135deg, #0ea5e9, #0284c7);
+      color: #ffffff;
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(14, 165, 233, 0.3);
+      text-decoration: none;
+    }
+    .btn:hover { background: #0284c7; }
+  </style>
+</head>
+<body>
+  <iframe id="react-frame" src="http://127.0.0.1:8080/"></iframe>
+
+  <div id="fallback-overlay">
+    <h2 style="color: #38bdf8; margin-bottom: 0.5rem;">OcuNexa Clinical Workstation</h2>
+    <p style="color: #94a3b8; max-width: 500px; line-height: 1.6;">
+      If MATLAB's CEF browser blocks iframe embedding via CSP, open the full hardware-accelerated workstation directly in your browser:
+    </p>
+    <a href="http://127.0.0.1:8080/" target="_blank" class="btn">Open OcuNexa Workstation (Port 8080)</a>
+  </div>
+
+  <script>
+    // Show fallback option if iframe fails to load or receives error
+    const iframe = document.getElementById('react-frame');
+    iframe.onerror = function() {
+      document.getElementById('fallback-overlay').style.display = 'flex';
+    };
+  </script>
+</body>
+</html>

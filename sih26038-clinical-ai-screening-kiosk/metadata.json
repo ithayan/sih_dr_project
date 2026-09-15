@@ -1,0 +1,7 @@
+{
+  "name": "SIH26038 Clinical AI Screening Kiosk",
+  "description": "Bi-directional offline-first screening workstation for Diabetic Retinopathy and Systemic Immunological Risk with Grad-CAM and Cell2Sentence biological attention explainability.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

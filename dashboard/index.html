@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum XAI Studio</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Left Sidebar: Navigation -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>AI Studio</h2>
+                <span class="badge">Quantum Edge</span>
+            </div>
+            <nav>
+                <ul>
+                    <li class="active"><span>⚡</span> Triage Workspace</li>
+                    <li><span>📁</span> Patient Records</li>
+                    <li><span>📊</span> System Analytics</li>
+                    <li><span>⚙️</span> Quantum Config</li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Center Workspace: Upload & XAI Visualization -->
+        <main class="workspace">
+            <header>
+                <h1>Diabetic Retinopathy Inference</h1>
+                <button class="btn-primary" id="run-btn" disabled>Run Inference</button>
+            </header>
+            
+            <div class="workspace-content">
+                <div class="upload-zone" id="upload-zone">
+                    <p>Drag and drop a fundus image here, or click to browse.</p>
+                    <input type="file" id="file-input" accept="image/png, image/jpeg" hidden>
+                </div>
+                
+                <div class="visualization-zone hidden" id="viz-zone">
+                    <div class="image-container" id="image-wrapper">
+                        <img id="raw-image" src="" alt="Raw Fundus Image">
+                        <!-- XAI Overlay dynamically generated here -->
+                        <canvas id="xai-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Terminal/Console Area -->
+            <div class="console-area">
+                <div class="console-header">Diagnostic Output Log</div>
+                <div class="console-body" id="console">
+                    <div>[System] Ready. Awaiting image ingestion...</div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Sidebar: Configuration & Results -->
+        <aside class="config-panel">
+            <div class="panel-section">
+                <h3>Model Settings</h3>
+                <div class="setting-item">
+                    <label>Architecture Engine</label>
+                    <select>
+                        <option>PennyLane Quantum (Hybrid)</option>
+                        <option>MobileNetV2 (Classical)</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label>Temperature (Threshold)</label>
+                    <input type="range" min="0" max="1" step="0.1" value="0.5">
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <h3>Triage Results</h3>
+                <div class="result-card">
+                    <span class="label">Severity Grade</span>
+                    <h2 id="grade-result" class="pending">Pending</h2>
+                </div>
+                <div class="result-card">
+                    <span class="label">Fovea Coordinates</span>
+                    <h4 id="fovea-result" class="pending">Pending</h4>
+                </div>
+                <div class="result-card">
+                    <span class="label">Processing Latency</span>
+                    <h4 id="latency-result" class="pending">-- ms</h4>
+                </div>
+            </div>
+        </aside>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
