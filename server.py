@@ -7,7 +7,7 @@ import base64
 import torch
 import torch.nn.functional as F
 import numpy as np
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, redirect
 from flask_cors import CORS
 from PIL import Image
 import torchvision.transforms as transforms
@@ -311,9 +311,11 @@ def health():
     })
 
 
-@app.route('/api/predict', methods=['POST'])
-@app.route('/predict', methods=['POST'])
+@app.route('/api/predict', methods=['GET', 'POST'])
+@app.route('/predict', methods=['GET', 'POST'])
 def predict():
+    if request.method == 'GET':
+        return redirect('/')
     t_start = time.time()
     try:
         data = request.get_json() or {}
