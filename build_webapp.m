@@ -16,12 +16,13 @@ if ~exist(outDir, 'dir')
 end
 
 % Build Web App Archive (.ctf)
-% Includes all Stateflow gates, sample assets, and XAI Visualizer
 try
-    disp('Executing MATLAB Compiler (mcc)...');
+    disp('Executing MATLAB Compiler (mcc with -C for App Designer UI)...');
     mcc('-W', 'webapp:NetraX_Clinical_Workstation', ...
+        '-C', ...
         '-d', outDir, ...
-        'XAI_Visualizer.m', ...
+        'launch_NetraX_Web.m', ...
+        '-a', 'XAI_Visualizer.m', ...
         '-a', 'Gate1_QualityCheck.m', ...
         '-a', 'Gate2_AnomalyDetect.m', ...
         '-a', 'Gate3_LesionIdentify.m', ...
@@ -31,13 +32,16 @@ try
         '-v');
     
     disp('========================================================================');
-    disp(['SUCCESS: Web App Archive generated in: ', fullfile(outDir, 'NetraX_Clinical_Workstation.ctf')]);
-    disp('To deploy:');
-    disp('1. Copy NetraX_Clinical_Workstation.ctf to your MATLAB Web App Server apps folder.');
-    disp('2. Access via browser: http://localhost:31415/webapps/home/');
-    disp('3. Expose to judges via tunnel: ngrok http 31415');
+    ctfFile = fullfile(outDir, 'NetraX_Clinical_Workstation.ctf');
+    if exist(ctfFile, 'file')
+        disp(['SUCCESS: Web App Archive generated in: ', ctfFile]);
+        s = dir(ctfFile);
+        disp(['Archive Size: ', num2str(s.bytes / 1024, '%.1f'), ' KB']);
+    else
+        disp(['Build finished. Output directory: ', outDir]);
+        dir(outDir);
+    end
     disp('========================================================================');
 catch ME
-    disp(['COMPILATION NOTICE: ', ME.message]);
-    disp('Ensure MATLAB Compiler toolbox is installed and licensed.');
+    disp(['COMPILATION ERROR: ', ME.message]);
 end
