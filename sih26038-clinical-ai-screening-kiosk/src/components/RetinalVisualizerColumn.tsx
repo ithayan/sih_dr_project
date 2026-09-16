@@ -133,7 +133,10 @@ export const RetinalVisualizerColumn: React.FC<RetinalVisualizerColumnProps> = (
               onChange={(e) => setShowVessels(e.target.checked)}
               className="rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-0"
             />
-            <span className="text-[11px] font-medium">Vessel Manifold</span>
+            <span className="text-[11px] font-medium text-cyan-400 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+              Neural & Vascular Tree
+            </span>
           </label>
         </div>
 
@@ -448,13 +451,26 @@ export const RetinalVisualizerColumn: React.FC<RetinalVisualizerColumnProps> = (
                 )}
               </g>
 
-              {/* GEO-FNO VASCULAR CONTINUITY MASK (When active) */}
+              {/* NEURAL & VASCULAR ARBORIZATION CONTINUITY MASK (When active) */}
               {showVessels && (
-                <g id="geo-fno-mask" opacity="0.45" stroke="#38bdf8" strokeWidth="8" fill="none" filter="drop-shadow(0 0 6px #0284c7)">
-                  <path d={`M ${disc.x * 8},${disc.y * 8} C 250,220 380,140 520,160 S 680,240 710,320`} />
-                  <path d={`M ${disc.x * 8},${disc.y * 8} C 240,560 380,660 540,640 S 680,560 720,460`} />
-                  <circle cx={disc.x * 8} cy={disc.y * 8} r="30" stroke="#0284c7" strokeWidth="4" />
-                </g>
+                currentCase.vesselTreeMaskBase64 ? (
+                  <image
+                    href={currentCase.vesselTreeMaskBase64.startsWith('data:') ? currentCase.vesselTreeMaskBase64 : `data:image/png;base64,${currentCase.vesselTreeMaskBase64}`}
+                    x="0"
+                    y="0"
+                    width="800"
+                    height="800"
+                    preserveAspectRatio="none"
+                    opacity={0.88}
+                    style={{ mixBlendMode: 'screen', filter: 'drop-shadow(0 0 4px #00e5ff)' }}
+                  />
+                ) : (
+                  <g id="geo-fno-mask" opacity="0.65" stroke="#38bdf8" strokeWidth="6" fill="none" filter="drop-shadow(0 0 6px #0284c7)">
+                    <path d={`M ${disc.x * 8},${disc.y * 8} C 250,220 380,140 520,160 S 680,240 710,320`} />
+                    <path d={`M ${disc.x * 8},${disc.y * 8} C 240,560 380,660 540,640 S 680,560 720,460`} />
+                    <circle cx={disc.x * 8} cy={disc.y * 8} r="30" stroke="#0284c7" strokeWidth="4" />
+                  </g>
+                )
               )}
             </svg>
           )}

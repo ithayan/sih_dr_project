@@ -122,6 +122,7 @@ export interface PatientCase {
   gate1_passed?: boolean;
   quality_score?: number;
   triage_routing?: string;
+  vesselTreeMaskBase64?: string;
   etdrsSubfieldRisks: {
     central1mm: number;
     innerSuperior: number;

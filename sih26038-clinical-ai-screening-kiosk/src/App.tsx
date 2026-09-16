@@ -148,6 +148,7 @@ export default function App() {
             slmNarrative: result.slm_narrative || prev.slmNarrative,
             xai_embeddings: result.xai_embeddings || prev.xai_embeddings,
             vascular_biomarkers: result.vascular_biomarkers || prev.vascular_biomarkers,
+            vesselTreeMaskBase64: result.vessel_tree_mask_b64 || prev.vesselTreeMaskBase64,
             gate1_passed: result.gate1_passed,
             quality_score: result.quality_score,
             triage_routing: result.triage_routing,
