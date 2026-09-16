@@ -1,18 +1,16 @@
 classdef XAI_Visualizer < handle
     % XAI_Visualizer: Clinical AI Screening Workstation for OcuNexa / NetraX (SIH26038)
-    % Hybrid YOLO-GNN-KAN Retinal Telemedicine Triage Workstation
+    % Fully Offline & MATLAB Web App Server Compatible Architecture
     %
     % Architecture:
-    %   - Branch A: YOLO26 Nano (yolo26n-seg.pt) compiled for Intel OpenVINO INT8 CPU
-    %               Hungarian One-to-One matching (NMS-Free) instance segmentation & bounding boxes
-    %   - Branch B: Topological Vascular GNN (2-Layer GAT on DRIVE skeleton)
-    %               Deterministic vascular metrics: AVR, Tortuosity Index, Branching Angle
-    %   - Branch C: Kolmogorov-Arnold Network (KAN) Decision Head with B-spline activation functions
+    %   - Branch A: YOLO26 Nano (yolo26n-seg.pt) with Hungarian one-to-one assignment
+    %   - Branch B: Topological Vascular GNN (Vessel Graph, GAT Message Passing, AVR, Tortuosity)
+    %   - Branch C: Kolmogorov-Arnold Network (KAN) Decision Head with B-splines
     %
-    % Clinical Stateflow Quality Gates:
-    %   - Gate 1: Hard Quality Lock (Recapture required if Quality Score < 0.70)
-    %   - Gate 2: Binary Referable Anomaly Filter (Early normal exit if p < 0.30)
-    %   - Gate 3: Multi-Label Lesion Grounding via YOLO26 Nano & GNN Graph
+    % Clinical Stateflow Hard Quality Gates:
+    %   - Gate 1: Hard Quality Lock (Diagnostic Cutoff: 0.70)
+    %   - Gate 2: Binary Referable Anomaly Filter (Normal early exit if p < 0.30)
+    %   - Gate 3: Dual Semantic YOLO26 Nano & GNN Vascular Extraction
     %   - Gate 4: Platt Scaling Confidence & Remote Specialist Escalation (< 82%)
 
     properties (Access = public)
@@ -32,6 +30,7 @@ classdef XAI_Visualizer < handle
 
         UIAxes matlab.ui.control.UIAxes
         LoadImageButton matlab.ui.control.Button
+        PresetDropdown matlab.ui.control.DropDown
         RunInferenceButton matlab.ui.control.Button
         LogTextArea matlab.ui.control.TextArea
         SeverityLabel matlab.ui.control.Label
@@ -72,13 +71,24 @@ classdef XAI_Visualizer < handle
             createComponents(app);
             logMessage(app, '==================================================');
             logMessage(app, 'NETRAX / OCUNEXA CLINICAL AI WORKSTATION ONLINE');
+            logMessage(app, 'Deployment: 100% Offline / MATLAB Web App Server Ready');
             logMessage(app, 'Architecture: Hybrid YOLO26-GNN-KAN Core (SIH26038)');
-            logMessage(app, 'Branch A: YOLO26 Nano (OpenVINO INT8, NMS-Free Hungarian)');
+            logMessage(app, 'Branch A: YOLO26 Nano (Hungarian One-to-One, NMS-Free)');
             logMessage(app, 'Branch B: Vascular Graph GAT (AVR, Tortuosity, Angles)');
             logMessage(app, 'Branch C: B-Spline KAN Interpretability Head');
             logMessage(app, 'Gate 1: Hard Quality Lock (Diagnostic Cutoff: 0.70)');
             logMessage(app, 'Standby for patient fundus scan ingestion...');
             logMessage(app, '==================================================');
+
+            % Auto-load default fundus scan if present for instant web app demo
+            defaultScan = 'test_fundus_valid.png';
+            if exist(defaultScan, 'file')
+                try
+                    raw_img = imread(defaultScan);
+                    setCurrentImage(app, raw_img, defaultScan);
+                catch
+                end
+            end
         end
 
         function createComponents(app)
@@ -104,76 +114,90 @@ classdef XAI_Visualizer < handle
             app.LeftPanel.Layout.Row = 1;
             app.LeftPanel.Layout.Column = 1;
 
-            leftGrid = uigridlayout(app.LeftPanel, [15 1]);
-            leftGrid.RowHeight = {36, 36, 18, 28, 28, 28, 18, 28, 28, 28, 18, 28, 28, '1x', 22};
+            leftGrid = uigridlayout(app.LeftPanel, [16 1]);
+            leftGrid.RowHeight = {34, 30, 36, 18, 26, 26, 26, 18, 26, 26, 26, 18, 26, 26, '1x', 22};
             leftGrid.BackgroundColor = [0.09 0.12 0.17];
             leftGrid.Padding = [8 8 8 8];
             leftGrid.RowSpacing = 4;
 
+            % 1. Load Custom File Button (Desktop & Browser)
             app.LoadImageButton = uibutton(leftGrid, 'push', ...
                 'Text', '  Load Fundus Image', ...
                 'BackgroundColor', [0.02 0.44 0.74], 'FontColor', [1 1 1], ...
-                'FontSize', 12, 'FontWeight', 'bold', ...
+                'FontSize', 11, 'FontWeight', 'bold', ...
                 'ButtonPushedFcn', @(btn,event) LoadImage(app));
             app.LoadImageButton.Layout.Row = 1;
 
+            % 2. Web App Server Compatible Preset Dropdown (Zero uigetfile dependency in browser)
+            app.PresetDropdown = uidropdown(leftGrid, ...
+                'Items', {'-- Choose Sample Scan --', ...
+                          'Grade 2: Moderate NPDR (test_fundus_valid.png)', ...
+                          'Grade 0: Healthy Retina (sample_grade0_normal.png)', ...
+                          'Gate 1 Reject: Blur (test_fundus_low_quality.png)'}, ...
+                'Value', '-- Choose Sample Scan --', ...
+                'BackgroundColor', [0.12 0.16 0.22], 'FontColor', [0.90 0.95 1.00], ...
+                'FontSize', 10, ...
+                'ValueChangedFcn', @(dd,event) onPresetSelected(app));
+            app.PresetDropdown.Layout.Row = 2;
+
+            % 3. Execute Screening Button
             app.RunInferenceButton = uibutton(leftGrid, 'push', ...
                 'Text', '  Execute NetraX Triage', ...
                 'BackgroundColor', [0.10 0.65 0.35], 'FontColor', [1 1 1], ...
                 'FontSize', 12, 'FontWeight', 'bold', 'Enable', 'off', ...
                 'ButtonPushedFcn', @(btn,event) RunInference(app));
-            app.RunInferenceButton.Layout.Row = 2;
+            app.RunInferenceButton.Layout.Row = 3;
 
             % --- Branch A: YOLO26 Nano Lesion Engine ---
-            lblYolo = uilabel(leftGrid, 'Text', 'BRANCH A: YOLO26 NANO LESION ENGINE', ...
+            lblYolo = uilabel(leftGrid, 'Text', 'BRANCH A: YOLO26 NANO LESIONS', ...
                 'FontSize', 10, 'FontWeight', 'bold', 'FontColor', [0.38 0.74 0.98]);
-            lblYolo.Layout.Row = 3;
+            lblYolo.Layout.Row = 4;
 
-            app.YoloEngineLabel = uilabel(leftGrid, 'Text', 'YOLO26 Engine: OpenVINO INT8 (NMS-Free)', ...
+            app.YoloEngineLabel = uilabel(leftGrid, 'Text', 'YOLO26 Engine: Offline INT8 (NMS-Free)', ...
                 'FontSize', 10, 'FontColor', [0.85 0.90 0.95], 'BackgroundColor', [0.05 0.07 0.10]);
-            app.YoloEngineLabel.Layout.Row = 4;
+            app.YoloEngineLabel.Layout.Row = 5;
 
             app.YoloDetectionsCountLabel = uilabel(leftGrid, 'Text', 'YOLO26 Detections: --', ...
                 'FontSize', 10, 'FontColor', [0.85 0.90 0.95], 'BackgroundColor', [0.05 0.07 0.10]);
-            app.YoloDetectionsCountLabel.Layout.Row = 5;
+            app.YoloDetectionsCountLabel.Layout.Row = 6;
 
             app.LesionCountLabel = uilabel(leftGrid, 'Text', 'Lesions: MA:0 | HE:0 | EX:0', ...
                 'FontSize', 10, 'FontColor', [0.85 0.90 0.95], 'BackgroundColor', [0.05 0.07 0.10]);
-            app.LesionCountLabel.Layout.Row = 6;
+            app.LesionCountLabel.Layout.Row = 7;
 
             % --- Branch B: GNN Vascular Engine ---
             lblVasc = uilabel(leftGrid, 'Text', 'BRANCH B: TOPOLOGICAL VASCULAR GNN', ...
                 'FontSize', 10, 'FontWeight', 'bold', 'FontColor', [0.38 0.74 0.98]);
-            lblVasc.Layout.Row = 7;
+            lblVasc.Layout.Row = 8;
 
             app.AVRLabel = uilabel(leftGrid, 'Text', 'AVR (A/V Ratio): --', ...
                 'FontSize', 10, 'FontColor', [0.85 0.90 0.95], 'BackgroundColor', [0.05 0.07 0.10]);
-            app.AVRLabel.Layout.Row = 8;
+            app.AVRLabel.Layout.Row = 9;
 
             app.TortuosityLabel = uilabel(leftGrid, 'Text', 'Tortuosity Index: --', ...
                 'FontSize', 10, 'FontColor', [0.85 0.90 0.95], 'BackgroundColor', [0.05 0.07 0.10]);
-            app.TortuosityLabel.Layout.Row = 9;
+            app.TortuosityLabel.Layout.Row = 10;
 
             app.BranchAngleLabel = uilabel(leftGrid, 'Text', 'Branching Angle: -- deg', ...
                 'FontSize', 10, 'FontColor', [0.85 0.90 0.95], 'BackgroundColor', [0.05 0.07 0.10]);
-            app.BranchAngleLabel.Layout.Row = 10;
+            app.BranchAngleLabel.Layout.Row = 11;
 
             % --- Branch C: KAN & Quality Gates ---
             lblGates = uilabel(leftGrid, 'Text', 'BRANCH C & CLINICAL GATES', ...
                 'FontSize', 10, 'FontWeight', 'bold', 'FontColor', [0.38 0.74 0.98]);
-            lblGates.Layout.Row = 11;
+            lblGates.Layout.Row = 12;
 
             app.GateStatusLabel = uilabel(leftGrid, 'Text', 'Gate 1 Quality: Inactive', ...
                 'FontSize', 10, 'FontColor', [0.85 0.90 0.95], 'BackgroundColor', [0.05 0.07 0.10]);
-            app.GateStatusLabel.Layout.Row = 12;
+            app.GateStatusLabel.Layout.Row = 13;
 
             app.ModelConfidenceLabel = uilabel(leftGrid, 'Text', 'KAN Confidence: --', ...
                 'FontSize', 10, 'FontColor', [0.85 0.90 0.95], 'BackgroundColor', [0.05 0.07 0.10]);
-            app.ModelConfidenceLabel.Layout.Row = 13;
+            app.ModelConfidenceLabel.Layout.Row = 14;
 
             lblFoot = uilabel(leftGrid, 'Text', 'YOLO26 Nano + 2-Layer GAT + B-Spline KAN', ...
                 'FontSize', 9, 'FontColor', [0.45 0.55 0.65]);
-            lblFoot.Layout.Row = 15;
+            lblFoot.Layout.Row = 16;
 
             % ----------------------------------------------------
             % Center Panel: Vision Layer Toolbar & High-Res Retinal Axes
@@ -306,15 +330,55 @@ classdef XAI_Visualizer < handle
             drawnow;
         end
 
-        function LoadImage(app)
-            [file, path] = uigetfile({'*.png;*.jpg;*.jpeg;*.tif;*.bmp', 'Fundus Image Files (*.png, *.jpg, *.jpeg, *.tif, *.bmp)'});
-            if isequal(file, 0)
+        function onPresetSelected(app)
+            val = app.PresetDropdown.Value;
+            if contains(val, 'test_fundus_valid.png')
+                fn = 'test_fundus_valid.png';
+            elseif contains(val, 'sample_grade0_normal.png')
+                fn = 'sample_grade0_normal.png';
+            elseif contains(val, 'test_fundus_low_quality.png')
+                fn = 'test_fundus_low_quality.png';
+            else
                 return;
             end
-            img_path = fullfile(path, file);
-            app.CurrentFileName = char(file);
-            
-            raw_img = imread(img_path);
+
+            if exist(fn, 'file')
+                raw_img = imread(fn);
+                setCurrentImage(app, raw_img, fn);
+            else
+                logMessage(app, sprintf('Notice: Preset file "%s" not found in search path.', fn));
+            end
+        end
+
+        function LoadImage(app)
+            % Check if running in desktop MATLAB or Web App Server
+            try
+                [file, path] = uigetfile({'*.png;*.jpg;*.jpeg;*.tif;*.bmp', ...
+                    'Fundus Image Files (*.png, *.jpg, *.jpeg, *.tif, *.bmp)'});
+                if isequal(file, 0)
+                    return;
+                end
+                img_path = fullfile(path, file);
+                raw_img = imread(img_path);
+                setCurrentImage(app, raw_img, char(file));
+            catch ME
+                % uigetfile is blocked or restricted inside MATLAB Web App Server browser sandbox
+                logMessage(app, 'Notice: Browser mode detected. Loading default sample scan...');
+                if exist('test_fundus_valid.png', 'file')
+                    raw_img = imread('test_fundus_valid.png');
+                    setCurrentImage(app, raw_img, 'test_fundus_valid.png');
+                else
+                    uialert(app.UIFigure, ...
+                        'File explorer is restricted in browser sandbox. Please select a scan from the Preset Dropdown above.', ...
+                        'Web App Mode');
+                end
+            end
+        end
+
+        function setCurrentImage(app, raw_img, fileName)
+            if nargin < 3 || isempty(fileName)
+                fileName = 'patient_scan.jpg';
+            end
 
             % Normalize data type and channel dimensions
             if size(raw_img, 3) == 4
@@ -334,6 +398,8 @@ classdef XAI_Visualizer < handle
             end
 
             app.CurrentImage = raw_img;
+            app.CurrentFileName = char(fileName);
+
             [h, w, ~] = size(app.CurrentImage);
 
             % Accurate circular Field-of-View (FOV) retinal mask
@@ -354,9 +420,10 @@ classdef XAI_Visualizer < handle
             app.UIAxes.YDir = 'reverse';
             app.UIAxes.XColor = 'none';
             app.UIAxes.YColor = 'none';
-            title(app.UIAxes, sprintf('Raw Fundus Scan Ingested: %s (%dx%d)', file, w, h), 'Color', [0.9 0.9 0.9], 'FontSize', 11);
+            title(app.UIAxes, sprintf('Raw Fundus Scan Ingested: %s (%dx%d)', fileName, w, h), ...
+                'Color', [0.9 0.9 0.9], 'FontSize', 11);
 
-            logMessage(app, sprintf('Scan Ingested: %s (%dx%d)', file, w, h));
+            logMessage(app, sprintf('Scan Ingested: %s (%dx%d)', fileName, w, h));
             logMessage(app, 'Gate 1 [Gradability]: Ready for quality verification.');
 
             app.RunInferenceButton.Enable = 'on';
@@ -365,7 +432,8 @@ classdef XAI_Visualizer < handle
             app.TriageStatusLabel.Text = 'ROUTING: Pending Gate Execution';
             app.TriageStatusLabel.FontColor = [0.6 0.7 0.8];
             app.RecommendationLabel.Text = 'Click "Execute NetraX Triage" to stream 4-Gate screening with YOLO26 Nano.';
-            app.YoloDetectionsTextArea.Value = {'[YOLO26 Nano Detection Inventory]', 'Ready. Click Execute to detect lesions.'};
+            app.YoloDetectionsTextArea.Value = {'[YOLO26 Nano Detection Inventory]', ...
+                'Ready. Click Execute to detect lesions.'};
         end
 
         function RunInference(app)
@@ -375,50 +443,64 @@ classdef XAI_Visualizer < handle
             end
 
             logMessage(app, '--------------------------------------------------');
-            logMessage(app, 'Connecting to NetraX Edge Server (Port 8080)...');
+            logMessage(app, 'Executing 4-Gate Stateflow & YOLO26 screening...');
             app.RunInferenceButton.Enable = 'off';
-            drawnow;
+            cleanupObj = onCleanup(@() set(app.RunInferenceButton, 'Enable', 'on'));
 
+            % Check if local Python edge server is available on port 8080 (0.8s fast probe)
+            isServerAvailable = false;
             try
-                % Normalize transmission resolution for large scans (>1024px) for rapid edge transfer
-                imgToSend = app.CurrentImage;
-                [h, w, ~] = size(imgToSend);
-                if max(h, w) > 1024
-                    scale = 1024.0 / max(h, w);
-                    imgToSend = imresize(imgToSend, scale);
+                options_probe = weboptions('MediaType', 'application/json', 'Timeout', 0.8);
+                health_probe = webread('http://127.0.0.1:8080/health', options_probe);
+                if isfield(health_probe, 'status') && strcmp(health_probe.status, 'online')
+                    isServerAvailable = true;
                 end
-
-                % Base64 JPEG encoding for fast local HTTP transfer
-                tempfile = [tempname, '.jpg'];
-                imwrite(imgToSend, tempfile, 'Quality', 92);
-                fid = fopen(tempfile, 'rb');
-                bytes = fread(fid, '*uint8');
-                fclose(fid);
-                if isfile(tempfile)
-                    delete(tempfile);
-                end
-
-                b64str = matlab.net.base64encode(bytes);
-                fname = app.CurrentFileName;
-                if isempty(fname)
-                    fname = 'patient_scan.jpg';
-                end
-                payload = struct('image_base64', b64str, 'filename', fname);
-                options = weboptions('MediaType', 'application/json', 'Timeout', 10);
-                url = 'http://127.0.0.1:8080/predict';
-
-                logMessage(app, 'Streaming scan to Hybrid YOLO26-GNN-KAN Pipeline...');
-                response = webwrite(url, payload, options);
-
-                processServerResponse(app, response);
-
-            catch ME
-                logMessage(app, ['Backend Notice: ' ME.message]);
-                logMessage(app, 'Executing Native MATLAB Stateflow & YOLO26 Engine...');
-                processLocalFallback(app);
+            catch
+                isServerAvailable = false;
             end
 
-            app.RunInferenceButton.Enable = 'on';
+            if isServerAvailable
+                try
+                    logMessage(app, 'Streaming scan to Hybrid YOLO26-GNN-KAN Edge Server...');
+                    
+                    imgToSend = app.CurrentImage;
+                    [h, w, ~] = size(imgToSend);
+                    if max(h, w) > 1024
+                        scale = 1024.0 / max(h, w);
+                        imgToSend = imresize(imgToSend, scale);
+                    end
+
+                    tempfile = [tempname, '.jpg'];
+                    imwrite(imgToSend, tempfile, 'Quality', 92);
+                    fid = fopen(tempfile, 'rb');
+                    bytes = fread(fid, '*uint8');
+                    fclose(fid);
+                    if isfile(tempfile)
+                        delete(tempfile);
+                    end
+
+                    b64str = matlab.net.base64encode(bytes);
+                    payload = struct('image_base64', b64str, 'filename', app.CurrentFileName);
+                    options = weboptions('MediaType', 'application/json', 'Timeout', 8);
+                    url = 'http://127.0.0.1:8080/predict';
+
+                    response = webwrite(url, payload, options);
+                    processServerResponse(app, response);
+                    return;
+                catch ME
+                    logMessage(app, ['Edge Notice: ' ME.message]);
+                    logMessage(app, 'Switching to 100% Offline Native Stateflow Pipeline...');
+                end
+            end
+
+            % Fallback: Run 100% offline native MATLAB 4-Gate Stateflow & YOLO26
+            try
+                logMessage(app, 'Executing in-process MATLAB 4-Gate Stateflow...');
+                processLocalFallback(app);
+            catch ME
+                logMessage(app, ['Offline Execution Notice: ' ME.message]);
+                uialert(app.UIFigure, ME.message, 'Inference Notice');
+            end
         end
 
         function processServerResponse(app, response)
@@ -593,7 +675,7 @@ classdef XAI_Visualizer < handle
             Gate2_AnomalyDetect(processedImg);
 
             [yoloFeat, gnnFeat, lesionTypology, vascBiomarkers, yoloDets] = Gate3_LesionIdentify(processedImg);
-            [sevGrade, sevText, confidence, ~, triageAction] = Gate4_SeverityGrade(yoloFeat, gnnFeat, lesionTypology, vascBiomarkers);
+            [sevGrade, sevText, confidence, isEscalated, triageAction] = Gate4_SeverityGrade(yoloFeat, gnnFeat, lesionTypology, vascBiomarkers);
 
             app.SeverityGrade = sevGrade;
             app.SeverityText = sevText;
@@ -617,12 +699,23 @@ classdef XAI_Visualizer < handle
             app.ModelConfidenceLabel.Text = sprintf('KAN Confidence: %.1f%%', confidence * 100);
 
             app.SeverityLabel.Text = sevText;
-            app.SeverityLabel.FontColor = ternary(sevGrade == 0, [0.13, 0.77, 0.37], [0.94, 0.27, 0.27]);
+            switch sevGrade
+                case 0
+                    app.SeverityLabel.FontColor = [0.13, 0.77, 0.37];
+                case 1
+                    app.SeverityLabel.FontColor = [0.92, 0.70, 0.03];
+                case 2
+                    app.SeverityLabel.FontColor = [0.98, 0.45, 0.09];
+                otherwise
+                    app.SeverityLabel.FontColor = [0.94, 0.27, 0.27];
+            end
+            
             app.TriageStatusLabel.Text = triageAction;
-            app.RecommendationLabel.Text = sprintf('Stateflow Local Execution: %s', sevText);
+            app.TriageStatusLabel.FontColor = ternary(isEscalated, [0.94, 0.27, 0.27], [0.13, 0.77, 0.37]);
+            app.RecommendationLabel.Text = sprintf('Stateflow Offline Screening: %s', sevText);
 
             invText = cell(num_yolo + 1, 1);
-            invText{1} = sprintf('[YOLO26 LOCAL INVENTORY: %d DETECTIONS]', num_yolo);
+            invText{1} = sprintf('[YOLO26 OFFLINE INVENTORY: %d DETECTIONS]', num_yolo);
             for k = 1:num_yolo
                 det_item = app.CurrentYoloDetections{k};
                 invText{k + 1} = sprintf('%s: %s (%.0f%%) • %s', det_item.detection_id, det_item.lesion_type, det_item.confidence * 100, det_item.etdrs_zone);
@@ -630,7 +723,7 @@ classdef XAI_Visualizer < handle
             app.YoloDetectionsTextArea.Value = invText;
 
             RenderOverlays(app);
-            logMessage(app, 'Native MATLAB YOLO26 & 4-Gate Execution complete.');
+            logMessage(app, 'Native MATLAB Stateflow & YOLO26 screening complete.');
         end
 
         function RenderOverlays(app)
