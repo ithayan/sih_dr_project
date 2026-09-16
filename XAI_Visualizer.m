@@ -52,6 +52,10 @@ classdef XAI_Visualizer < handle
         ModelConfidenceLabel matlab.ui.control.Label
         YoloDetectionsTextArea matlab.ui.control.TextArea
 
+        % Neural & Vascular Tree Visualizer Layer
+        ShowNeuralTreeCheckbox matlab.ui.control.CheckBox
+        ExtractedNeuralTree logical = []
+
         CurrentImage uint8 = []
         RetinaMask logical = []
         CurrentFileName char = 'patient_scan.jpg'
@@ -221,8 +225,8 @@ classdef XAI_Visualizer < handle
             app.LayerToolbarPanel.Layout.Row = 1;
             app.LayerToolbarPanel.Layout.Column = 1;
 
-            tbGrid = uigridlayout(app.LayerToolbarPanel, [1 5]);
-            tbGrid.ColumnWidth = {'1x', '1x', '1x', '1x', '1x'};
+            tbGrid = uigridlayout(app.LayerToolbarPanel, [1 6]);
+            tbGrid.ColumnWidth = {'1x', '1x', '1x', '1x', '1x', '1.25x'};
             tbGrid.BackgroundColor = [0.06 0.08 0.12];
             tbGrid.Padding = [4 4 4 4];
             tbGrid.ColumnSpacing = 6;
@@ -261,6 +265,13 @@ classdef XAI_Visualizer < handle
                 'ValueChangedFcn', @(src, event) RenderOverlays(app));
             app.ShowHeatmapCheckbox.Layout.Row = 1;
             app.ShowHeatmapCheckbox.Layout.Column = 5;
+
+            app.ShowNeuralTreeCheckbox = uicheckbox(tbGrid, ...
+                'Text', 'Neural & Vascular Tree', 'Value', false, ...
+                'FontColor', [0.30 0.85 1.00], 'FontSize', 10, 'FontWeight', 'bold', ...
+                'ValueChangedFcn', @(src, event) RenderOverlays(app));
+            app.ShowNeuralTreeCheckbox.Layout.Row = 1;
+            app.ShowNeuralTreeCheckbox.Layout.Column = 6;
 
             % Retinal Drawing Axes
             app.UIAxes = uiaxes(centerGrid);
@@ -408,6 +419,7 @@ classdef XAI_Visualizer < handle
 
             % Reset cache
             app.CurrentYoloDetections = {};
+            app.ExtractedNeuralTree = [];
             app.SeverityGrade = -1;
             app.SeverityText = 'READY FOR INFERENCE';
 
@@ -740,7 +752,27 @@ classdef XAI_Visualizer < handle
             end
 
             cla(app.UIAxes);
-            image(app.UIAxes, 'CData', app.CurrentImage);
+
+            if app.ShowNeuralTreeCheckbox.Value
+                % Compute or retrieve cached high-contrast neural & vascular tree
+                if isempty(app.ExtractedNeuralTree) || size(app.ExtractedNeuralTree, 1) ~= h || size(app.ExtractedNeuralTree, 2) ~= w
+                    logMessage(app, 'Extracting Retinal Neural & Vascular Arborization Network...');
+                    drawnow;
+                    app.ExtractedNeuralTree = app.extractNeuralVascularTree(app.CurrentImage, app.RetinaMask);
+                    logMessage(app, sprintf('Neural & Vascular Tree Extracted (%d network pixels)', sum(app.ExtractedNeuralTree(:))));
+                end
+
+                % High-contrast binary presentation (white tree on black background, clinical DRIVE standard)
+                treeRGB = repmat(uint8(app.ExtractedNeuralTree * 255), [1 1 3]);
+                image(app.UIAxes, 'CData', treeRGB);
+                title(app.UIAxes, sprintf('Extracted Neural & Vascular Arborization Tree: %s', app.CurrentFileName), ...
+                    'Color', [0.38 0.85 1.0], 'FontSize', 11);
+            else
+                image(app.UIAxes, 'CData', app.CurrentImage);
+                title(app.UIAxes, sprintf('Raw Fundus Scan Ingested: %s (%dx%d)', ...
+                    app.CurrentFileName, w, h), 'Color', [0.9 0.9 0.9], 'FontSize', 11);
+            end
+
             axis(app.UIAxes, 'image');
             app.UIAxes.XLim = [1, w];
             app.UIAxes.YLim = [1, h];
@@ -885,9 +917,58 @@ classdef XAI_Visualizer < handle
                 end
             end
 
-            title(app.UIAxes, sprintf('YOLO26 Nano • AVR: %.3f | Tortuosity: %.4f | %s', app.AVRVal, app.TortVal, app.SeverityText), ...
-                'Color', [0.9 0.9 0.9], 'FontSize', 11);
+            if app.ShowNeuralTreeCheckbox.Value
+                title(app.UIAxes, sprintf('Arborization Map • Neural & Vascular Paths • AVR: %.3f | Tortuosity: %.4f | %s', ...
+                    app.AVRVal, app.TortVal, app.SeverityText), 'Color', [0.38 0.85 1.0], 'FontSize', 11);
+            else
+                title(app.UIAxes, sprintf('YOLO26 Nano • AVR: %.3f | Tortuosity: %.4f | %s', app.AVRVal, app.TortVal, app.SeverityText), ...
+                    'Color', [0.9 0.9 0.9], 'FontSize', 11);
+            end
             hold(app.UIAxes, 'off');
+        end
+
+        function binaryTree = extractNeuralVascularTree(~, raw_img, retinaMask)
+            % Extract Green Channel (highest hemoglobin & RNFL optical contrast)
+            if size(raw_img, 3) == 3
+                g = raw_img(:, :, 2);
+            else
+                g = raw_img;
+            end
+            [h, w] = size(g);
+
+            if nargin < 3 || isempty(retinaMask) || size(retinaMask, 1) ~= h || size(retinaMask, 2) ~= w
+                retinaMask = imfill(g > 15, 'holes');
+            end
+            diskR = max(3, round(min(h, w) / 80));
+            fovMask = imerode(retinaMask, strel('disk', diskR));
+
+            % Contrast-Limited Adaptive Histogram Equalization
+            g_clahe = adapthisteq(g, 'ClipLimit', 0.02, 'Distribution', 'rayleigh');
+
+            % Multiscale Directional Morphological Bottom-Hat Filter
+            % Detects tubular blood vessels and nerve fiber bundles across 12 angles
+            len = max(9, round(min(h, w) * 0.025));
+            vesselResp = zeros(size(g), 'like', g);
+            for deg = 0:15:165
+                se = strel('line', len, deg);
+                vesselResp = max(vesselResp, imbothat(g_clahe, se));
+            end
+
+            vesselResp = vesselResp .* uint8(fovMask);
+            validPixels = vesselResp(fovMask);
+
+            if ~isempty(validPixels) && max(validPixels) > 0
+                lvl = graythresh(validPixels) * 0.82;
+                binaryTree = imbinarize(vesselResp, lvl);
+            else
+                binaryTree = false(size(g));
+            end
+
+            % Prune noise specks and close fine gaps
+            minObjSize = max(20, round((h * w) * 0.00015));
+            binaryTree = bwareaopen(binaryTree, minObjSize);
+            binaryTree = imclose(binaryTree, strel('disk', 1));
+            binaryTree = binaryTree & fovMask;
         end
     end
 end
