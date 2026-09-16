@@ -280,9 +280,17 @@ def analyze_fundus_image(img, filename=""):
             "lesionType": "Microaneurysm",
             "etdrsZone": "Macular Perifovea"
         })
-        hid += 1
+    vessel_b64 = ""
+    try:
+        v_uint8 = (vessel_mask.astype(np.uint8) * 255)
+        v_pil = Image.fromarray(v_uint8)
+        buf = io.BytesIO()
+        v_pil.save(buf, format="PNG")
+        vessel_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+    except Exception as e:
+        print(f"[OcuNexa] Vessel mask encode notice: {e}")
 
-    return quality_score, sev_grade, fov_x, fov_y, od_x, od_y, lesion_typology, hotspots, avr, tort, conf, probs
+    return quality_score, sev_grade, fov_x, fov_y, od_x, od_y, lesion_typology, hotspots, avr, tort, conf, probs, vessel_b64
 
 
 @app.route('/api/health', methods=['GET'])
@@ -336,8 +344,9 @@ def predict():
         if img is not None:
             input_tensor = transform(img).unsqueeze(0)
             (q_score, sev_class_idx, fov_x_rel, fov_y_rel, od_x_rel, od_y_rel,
-             lesion_typology, hotspots, avr_val, tortuosity_val, confidence, sev_probs) = analyze_fundus_image(img, filename=filename)
+             lesion_typology, hotspots, avr_val, tortuosity_val, confidence, sev_probs, vessel_b64) = analyze_fundus_image(img, filename=filename)
         else:
+            vessel_b64 = ""
             seed = sum(ord(c) for c in (preset_id or "default")) % 1000
             torch.manual_seed(seed)
             input_tensor = torch.randn(1, 3, 224, 224)
@@ -586,6 +595,7 @@ def predict():
                 "tortuosity_index": round(tortuosity_val, 4),
                 "branching_angle_irregularity_deg": round(branching_angle, 2)
             },
+            "vessel_tree_mask_b64": vessel_b64,
 
             # Branch C: KAN Explainability & Latent Projections
             "xai_embeddings": xai_embeddings,

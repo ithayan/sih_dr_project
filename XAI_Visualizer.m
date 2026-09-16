@@ -657,6 +657,26 @@ classdef XAI_Visualizer < handle
                 app.TriageStatusLabel.FontColor = [0.13, 0.77, 0.37];
             end
 
+            % Ingest Server Neural & Vascular Arborization Tree
+            if isfield(response, 'vessel_tree_mask_b64') && ~isempty(response.vessel_tree_mask_b64)
+                try
+                    raw_bytes = matlab.net.base64decode(response.vessel_tree_mask_b64);
+                    t_file = [tempname, '.png'];
+                    fid = fopen(t_file, 'wb');
+                    fwrite(fid, raw_bytes, 'uint8');
+                    fclose(fid);
+                    v_img = imread(t_file);
+                    if exist(t_file, 'file'), delete(t_file); end
+                    if size(v_img, 3) > 1, v_img = v_img(:, :, 1); end
+                    [h, w, ~] = size(app.CurrentImage);
+                    if size(v_img, 1) ~= h || size(v_img, 2) ~= w
+                        v_img = imresize(v_img, [h, w], 'nearest');
+                    end
+                    app.ExtractedNeuralTree = (v_img > 100);
+                catch
+                end
+            end
+
             % Render Active Visual Layers
             RenderOverlays(app);
             logMessage(app, 'YOLO26 Bounding Boxes & Tri-Modal Evidence successfully rendered.');
