@@ -1,0 +1,15 @@
+# Docker ignore for Hugging Face Spaces build
+matlab_R2026a_Windows.exe
+*.exe
+MATLABWebAppServer.exe
+dist_webapp/
+.git
+.agents
+.gemini
+__pycache__/
+*.pyc
+node_modules/
+sih26038-clinical-ai-screening-kiosk/node_modules/
+.env*
+test_*.png
+district_operations_simulation.png

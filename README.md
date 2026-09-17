@@ -1,5 +1,5 @@
 ---
-title: NetraX Clinical AI Screening Kiosk
+title: OCUNEXA Clinical AI Screening Kiosk
 emoji: 👁️
 colorFrom: blue
 colorTo: cyan
@@ -9,7 +9,7 @@ pinned: false
 ---
 
 # sih_dr_project
-# TECHFUSION / NetraX — Explainable AI for Diabetic Retinopathy Screening in Rural India
+# OCUNEXA — Explainable AI for Diabetic Retinopathy Screening in Rural India
 
 ### Smart India Hackathon 2026
 

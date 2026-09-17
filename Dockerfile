@@ -1,5 +1,5 @@
 # =========================================================================
-# Multi-Stage Dockerfile for NetraX on Hugging Face Spaces (Port 7860)
+# Multi-Stage Dockerfile for OCUNEXA on Hugging Face Spaces (Port 7860)
 # =========================================================================
 
 # Stage 1: Build React Kiosk Frontend
@@ -46,5 +46,5 @@ USER user
 ENV PORT=7860
 EXPOSE 7860
 
-# Launch NetraX AI Server
+# Launch OCUNEXA AI Server
 CMD ["python", "server.py"]

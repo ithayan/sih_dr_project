@@ -29,13 +29,13 @@ else:
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-print(f"[NetraX] Static files directory set to: {STATIC_DIR} (source: {SERVE_SOURCE})")
-print("[NetraX] Initializing Hybrid YOLO-GNN-KAN Architecture (YOLO26 Nano + OpenVINO INT8 + GAT + KAN)...")
+print(f"[Server] Static files directory set to: {STATIC_DIR} (source: {SERVE_SOURCE})")
+print("[Server] Initializing Hybrid YOLO-GNN-KAN Architecture (YOLO26 Nano + OpenVINO INT8 + GAT + KAN)...")
 start_init = time.time()
 model = NetraXYoloGnnKanPipeline()
 model.eval()
 init_time = (time.time() - start_init) * 1000
-print(f"[NetraX] Model initialized in {init_time:.2f} ms. System ready on port 8080.")
+print(f"[Server] Model initialized in {init_time:.2f} ms. System ready on port 8080.")
 
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -298,8 +298,8 @@ def analyze_fundus_image(img, filename=""):
 def health():
     return jsonify({
         "status": "online",
-        "system": "NetraX Clinical AI Screening & Telemedicine Workstation",
-        "kiosk_id": "NETRAX-IND-DELHI-042",
+        "system": "OCUNEXA Clinical AI Screening & Telemedicine Workstation",
+        "kiosk_id": "OCUNEXA-IND-DELHI-042",
         "architecture": "Hybrid YOLO-GNN-KAN",
         "branches": [
             "Branch A: YOLO26 Nano (yolo26n-seg.pt) with Intel OpenVINO INT8 (NMS-Free Hungarian Assignment)",
@@ -618,7 +618,7 @@ def predict():
                 "totalLatencyMs": total_time_ms,
                 "serverLatencyMs": total_time_ms,
                 "modelLatencyMs": model_time_ms,
-                "engine": "NetraX Hybrid YOLO-GNN-KAN Architecture (YOLO26 Nano + OpenVINO INT8 + GAT + B-Spline KAN)",
+                "engine": "OCUNEXA Hybrid YOLO-GNN-KAN Architecture (YOLO26 Nano + OpenVINO INT8 + GAT + B-Spline KAN)",
                 "acceleration": "Intel OpenVINO INT8 CPU Runtime",
                 "port": int(os.environ.get('PORT', 8080)),
                 "status": "NOMINAL"
@@ -629,7 +629,7 @@ def predict():
     except Exception as e:
         import traceback
         traceback.print_exc()
-        print(f"[NetraX] Inference error: {e}", flush=True)
+        print(f"[Server] Inference error: {e}", flush=True)
         return jsonify({"error": str(e), "status": "failed"}), 500
 
 

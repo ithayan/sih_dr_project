@@ -59,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
                 SIH26038
               </span>
               <h1 className="text-sm md:text-base font-bold text-slate-100 tracking-tight flex items-center gap-1.5">
-                NetraX Telemedicine Hub
+                OCUNEXA Telemedicine Hub
                 <span className="text-xs font-normal text-slate-400 hidden sm:inline">
                   • Edge-to-Hub Architecture (YOLO-GNN-KAN)
                 </span>

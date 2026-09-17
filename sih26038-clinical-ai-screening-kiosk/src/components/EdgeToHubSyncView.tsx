@@ -38,13 +38,13 @@ export const EdgeToHubSyncView: React.FC<EdgeToHubSyncViewProps> = ({
 
   // Generate standardized Edge-to-Hub JSON Telemedicine Synchronization Packet
   const syncPacket = {
-    protocol_version: 'NETRAX-SECURE-SYNC-v2.6',
+    protocol_version: 'OCUNEXA-SECURE-SYNC-v2.6',
     timestamp: new Date().toISOString(),
     edge_device: {
-      kiosk_id: 'NETRAX-IND-DELHI-042',
+      kiosk_id: 'OCUNEXA-IND-DELHI-042',
       hardware_target: 'Intel Core i5-1135G7 @ 2.40GHz (Iris Xe)',
       os: 'Windows 11 Embedded / Air-Gapped Field Station',
-      inference_engine: 'NetraX Hybrid YOLO-GNN-KAN Edge Core (OpenVINO INT8)',
+      inference_engine: 'OCUNEXA Hybrid YOLO-GNN-KAN Edge Core (OpenVINO INT8)',
       offline_buffer_status: 'NOMINAL',
     },
     patient_demographics: {
@@ -138,7 +138,7 @@ export const EdgeToHubSyncView: React.FC<EdgeToHubSyncViewProps> = ({
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(syncPacket, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `NetraX_SyncPacket_${selectedPayloadCase.patientId}.json`);
+    downloadAnchor.setAttribute("download", `OCUNEXA_SyncPacket_${selectedPayloadCase.patientId}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();

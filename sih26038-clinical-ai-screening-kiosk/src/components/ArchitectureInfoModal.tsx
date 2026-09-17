@@ -51,7 +51,7 @@ export const ArchitectureInfoModal: React.FC<ArchitectureInfoModalProps> = ({
           {/* Header Banner */}
           <div className="bg-gradient-to-r from-cyan-950/60 to-blue-950/60 border border-cyan-800/40 p-4 rounded-xl">
             <h3 className="text-sm font-bold text-cyan-200 mb-1">
-              NetraX: Hybrid YOLO-GNN-KAN Edge-to-Hub Clinical Architecture
+              OCUNEXA: Hybrid YOLO-GNN-KAN Edge-to-Hub Clinical Architecture
             </h3>
             <p className="text-slate-400 leading-relaxed">
               Strictly engineered for offline rural telemedicine on standard Intel® Core™ i5 workstations (&lt; 800 ms latency budget). 
